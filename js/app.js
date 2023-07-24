@@ -1,10 +1,10 @@
-//Variables y selectores
+//VARIABLES Y SELECTORES
 const formulario = document.querySelector('#agregar-gasto');
 const gastoListado = document.querySelector('#gastos ul');
 
 
 
-//Eventos
+//EVENTOS
 eventos();
 function eventos () {
     document.addEventListener('DOMContentLoaded', preguntarPresupuesto);
@@ -14,21 +14,36 @@ function eventos () {
 
 
 
-//Clases
+//CLASES
 class Presupuesto {
     constructor(presupuesto) {
         this.presupuesto = Number(presupuesto);
         this.restante = Number(presupuesto);
         this.gastos = [];
     }
-}
 
+    nuevoGasto(gasto) {
+        this.gastos = [...this.gastos, gasto]
+        this.calcularRestante();//a este metodo lo llamo cuando se agrega un nuevo gasto
+    }
+
+    calcularRestante() {
+        const gastado = this.gastos.reduce((total, gastoActual) => total + gastoActual.cantidad, 0 )
+        this.restante = this.presupuesto - gastado;
+    }
+
+    eliminarGasto(id) {
+        this.gastos = this.gastos.filter(gasto => gasto.id !== id);
+        this.calcularRestante();
+
+    }
+}
 
 class UI {
     insertarPresupuesto (cantidad) {
         const { presupuesto, restante} = cantidad;
         document.querySelector('#total').textContent = presupuesto;
-        document.querySelector('#restante').textContent = restante;  
+        document.querySelector('#restante').textContent = restante;
     }
 
     imprimirAlerta (mensaje, tipo) {
@@ -49,12 +64,81 @@ class UI {
             divMensaje.remove()
         }, 3000);
     }
+
+    mostrarGastos(gastos) {
+
+        this.limpiarHTML(); //elimina el HTML previo
+
+        //iterando sobre los gastos
+        gastos.forEach(gasto => {
+            const { cantidad , nombre, id } = gasto;
+
+            const nuevoGasto = document.createElement('LI');
+            nuevoGasto.className = 'list-group-item d-flex justify-content-between align-items-center';
+            nuevoGasto.dataset.id = id;
+
+            //agregar el html del gasto
+            nuevoGasto.innerHTML = `
+                ${nombre} <span class="badge badge-primary badge-pill">$ ${cantidad}</span>
+            `;
+
+            //creando boton para borrar
+            const btnBorrar = document.createElement('BUTTON');
+            btnBorrar.classList.add('btn', 'btn-danger', 'borrar-gasto');
+            btnBorrar.innerHTML = 'Borrar &times;';
+            //agregando boton de borrar en el registro de gasto
+            btnBorrar.onclick = () => {
+                eliminarGasto(id);
+            }
+            nuevoGasto.appendChild(btnBorrar);
+
+            //agregando el HTML
+            gastoListado.appendChild(nuevoGasto);
+
+        });         
+    }
+
+    limpiarHTML() {
+        while (gastoListado.firstChild) {
+            gastoListado.removeChild(gastoListado.firstChild)
+        }
+    }
+
+    actualizarRestante(restante) {
+        document.querySelector('#restante').textContent = restante;
+    }
+
+    comprobarPresupuesto(presupuestoObj) {
+        const { presupuesto , restante } = presupuestoObj;
+
+        const restanteDiv = document.querySelector('.restante');
+
+        //comprobar 25%
+        if((presupuesto / 4) > restante) {
+            restanteDiv.classList.remove('alert-success', 'alert-warning');
+            restanteDiv.classList.add('alert-danger');
+        }else if ((presupuesto / 2) > restante) {
+            restanteDiv.classList.remove('alert-success');
+            restanteDiv.classList.add('alert-warning');
+        } else {
+            restanteDiv.classList.remove('alert-warning', 'alert-danger');
+            restanteDiv.classList.add('alert-success');
+        }
+
+        //si total es menor o igual a 0 
+        if(restante <= 0) {
+            ui.imprimirAlerta('El presupuesto se ha acabado', 'error')
+            formulario.querySelector('button[type="submit"]').disabled = true; 
+        }
+    }
 }
-//Instanciar
+//Instanciar UI
 const ui = new UI();
 let presupuesto;
 
-//funciones
+
+
+//FUNCIONES
 function preguntarPresupuesto() {
     const presupuestoUsuario = prompt('cual es tu presupuesto?')
 
@@ -77,9 +161,7 @@ function agregarGasto(e) {
     const nombre = document.querySelector('#gasto').value;
     const cantidad = Number(document.querySelector('#cantidad').value);
 
-
     //validar
-
     if(nombre ==='' || cantidad === '') {
         ui.imprimirAlerta('Ambos campos son obligatorios', 'error');
         return;
@@ -89,6 +171,31 @@ function agregarGasto(e) {
     }
 
     //GENERAR objeto dcon un gasto
-    const gasto = { nombre, cantidad } //object literal
-    console.log(gasto)
+    const gasto = { nombre, cantidad, id: Date.now() } //object literal enhancement
+
+    //añade un nuevo gasto
+    presupuesto.nuevoGasto(gasto)
+
+
+    //imprime mensaje de correcto
+    ui.imprimirAlerta('Gasto agregado correctamente')
+
+    //imprimir los gastos que me traigo de la clase presupuesto
+    const { gastos, restante } = presupuesto;
+    ui.mostrarGastos(gastos)
+    ui.actualizarRestante(restante)
+    ui.comprobarPresupuesto(presupuesto) //tomamos todo el presupuesto por que necesitamos el valor inicial y el restante para poder calcular el porcentaje de lo disponible y darle formato segun lo gastado
+    //resetea/limpia el formulario
+    formulario.reset();
+}
+
+function eliminarGasto(id) {
+    //elimina gastos de la clase
+    presupuesto.eliminarGasto(id);
+
+    //eliminar gastos del html
+    const { gastos, restante } = presupuesto;
+    ui.mostrarGastos(gastos)
+    ui.actualizarRestante(restante)
+    ui.comprobarPresupuesto(presupuesto)
 }
